@@ -7,7 +7,7 @@ Bisa hitung total belanja, cetak struk, dan nyimpen struk otomatis.
 - Input nama barang, harga, dan jumlah
 - Hitung total otomatis
 - Cetak struk ke layar
-- Simpan struk ke folder `struk/`
+- Simpan struk otomatis ke folder `struk/`
 
 ## 1. Install fish dan git (Termux)
 
