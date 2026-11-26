@@ -11,144 +11,203 @@ if not test -d ~/storage/shared
     exit
 end
 
-function input_angka
-    set -l prompt $argv[1]
-    set -l tipe $argv[2]
-    set -l max_len $argv[3]
+function input_angka -a prompt_text tipe max_digit
     while true
-        read -P "$prompt" input
-        set input (string trim "$input")
-        if test (string length "$input") -gt $max_len
-            set input (string sub -l $max_len "$input")
+        read -P "$prompt_text" input
+
+        if test "$input" = "batal"
+            set -g hasil_input "__BATAL__"
+            return
         end
+
         if test -z "$input"
+            echo "Input gak boleh kosong! Ketik angka atau 'batal'."
             continue
         end
+
         if test "$tipe" = "int"
-            set regex '^[0-9]+$'
+            if not string match -qr '^[0-9]+$' -- $input
+                echo " '$input' bukan angka. Ketik angka atau 'batal'."
+                continue
+            end
         else
-            set regex '^-?[0-9]+(\.[0-9]+)?$'
+            if not string match -qr '^[0-9]+(\.[0-9]+)?$' -- $input
+                echo "'$input' bukan angka. Ketik angka atau 'batal'."
+                continue
+            end
         end
-        if string match -qr "$regex" "$input"
-            echo $input
-            return
+
+        if test (string length -- $input) -gt $max_digit
+            echo "Kepanjangan! Maksimal $max_digit digit."
+            continue
         end
+
+        set -g hasil_input $input
+        return
     end
 end
 
-function input_teks
-    set -l prompt $argv[1]
-    set -l max_len $argv[2]
+function kasir
+    clear
+    echo "=============================="
+    echo "      KASIR FISH v1.0.1       "
+    echo "     github.com/ricoyp96   "
+    echo "=============================="
+    echo "Perintah:"
+    echo "  selesai = selesai input, lanjut bayar"
+    echo "  batal   = batalin barang / transaksi"
+    echo "=============================="
+    echo ""
+
+    set -l keranjang_nama
+    set -l keranjang_harga
+    set -l keranjang_jumlah
+    set -l total 0
+
     while true
-        read -P "$prompt" input
-        set input (string trim "$input")
-        if test (string length "$input") -gt $max_len
-            set input (string sub -l $max_len "$input")
+        read -P "Nama Barang : " nama
+
+        if test "$nama" = "selesai"
+            break
         end
-        if test -n "$input"
-            echo $input
+
+        if test "$nama" = "batal"
+            echo ""
+            echo "Transaksi dibatalkan. Tidak ada struk yang disimpan."
+            echo "Tekan Enter untuk balik ke menu..."
+            read
             return
         end
+
+        if test -z "$nama"
+            echo "Nama gak boleh kosong!"
+            continue
+        end
+
+        input_angka "Harga Barang : " "float" 7
+        set harga $hasil_input
+        if test "$harga" = "__BATAL__"
+            echo "Batal input '$nama', barang tidak ditambahkan."
+            echo ""
+            continue
+        end
+
+        input_angka "Jumlah : " "int" 3
+        set jumlah $hasil_input
+        if test "$jumlah" = "__BATAL__"
+            echo "Batal input '$nama', barang tidak ditambahkan."
+            echo ""
+            continue
+        end
+
+        set -a keranjang_nama "$nama"
+        set -a keranjang_harga $harga
+        set -a keranjang_jumlah $jumlah
+
+        set subtotal (math "$harga * $jumlah")
+        set total (math "$total + $subtotal")
+
+        echo "Ditambahkan: $nama x $jumlah = Rp $subtotal"
+        echo "Total sementara: Rp $total"
+        echo ""
     end
-end
 
-clear
-echo "========================="
-echo " PROGRAM KASIR FISH  "
-echo "     Versi 1.0.0     "
-echo " github.com/ricoyp96 "
-echo "========================="
+    if test (count $keranjang_nama) -eq 0
+        echo "Tidak ada barang, transaksi dibatalkan."
+        echo "Tekan Enter untuk balik..."
+        read
+        return
+    end
 
-set nama_barang
-set harga_barang
-set jumlah_barang
-set subtotal_list
-set total 0
+    echo ""
+    echo "---------- STRUK ----------"
+    for i in (seq (count $keranjang_nama))
+        set sub (math "$keranjang_harga[$i] * $keranjang_jumlah[$i]")
+        echo "$keranjang_nama[$i] x $keranjang_jumlah[$i] = Rp $sub"
+    end
+    echo "---------------------------"
+    echo "TOTAL: Rp $total"
+    echo ""
 
-while true
-    set nama (input_teks "Nama Barang [max 7]/ketik 'selesai' utk hitung: " 7)
-    if test "$nama" = "selesai"
+    while true
+        input_angka "Uang Bayar : " "float" 7
+        set bayar $hasil_input
+        if test "$bayar" = "__BATAL__"
+            echo "Pembayaran dibatalkan. Transaksi tidak disimpan."
+            echo "Tekan Enter untuk balik..."
+            read
+            return
+        end
+
+        if test $bayar -lt $total
+            echo "Uang kurang Rp "(math "$total - $bayar")
+            continue
+        end
         break
     end
 
-    set harga (input_angka "Harga Barang: Rp" "float" 7)
-    set jumlah (input_angka "Jumlah: " "int" 3)
-
-    set subtotal (math "$harga * $jumlah")
-    set total (math "$total + $subtotal")
-
-    set nama_barang $nama_barang $nama
-    set harga_barang $harga_barang $harga
-    set jumlah_barang $jumlah_barang $jumlah
-    set subtotal_list $subtotal_list $subtotal
-
-    echo "Ditambahkan: $nama x $jumlah = Rp$subtotal"
-    echo "-------------------------"
-end
-
-if test (count $nama_barang) -eq 0
-    exit
-end
-
-# 1. TAMPILKAN RINGKASAN + TOTAL DULU
-clear
-echo "========================="
-echo " RINGKASAN BELANJA "
-echo "========================="
-for i in (seq 1 (count $nama_barang))
-    printf "%-2d. %-7s x %3d = Rp%.0f\n" $i $nama_barang[$i] $jumlah_barang[$i] $subtotal_list[$i]
-end
-echo "-------------------------"
-echo "TOTAL BELANJA: Rp$total"
-echo "========================="
-echo ""
-
-# 2. BARU MINTA BAYAR
-set bayar (input_angka "Uang Bayar: Rp" "float" 10)
-
-set kembalian 0
-set kurang 0
-if test $bayar -lt $total
-    set kurang (math "$total - $bayar")
-else
     set kembalian (math "$bayar - $total")
+    echo "Kembalian: Rp $kembalian"
+    echo ""
+
+    mkdir -p $HOME/storage/shared/struk
+    set tanggal (date +%d-%m-%Y_%H%M%S)
+    set nama_file $HOME/storage/shared/struk/struk_$tanggal.txt
+    
+    # --- INI KHUSUS FILE TXT ---
+    echo "========================================" > $nama_file
+    echo "          TOKO BARANG DAN JASA" >> $nama_file
+    echo "      Jalan Kenangan Lama Kota Baru" >> $nama_file
+    echo "========================================" >> $nama_file
+    echo "No Struk : STR-$tanggal" >> $nama_file
+    echo "Tanggal  : "$tanggal >> $nama_file
+    echo "Kasir    : fish shell" >> $nama_file
+    echo "--------------------------------------------------------------------------" >> $nama_file
+    printf "%-3s %-14s %-4s %-7s %s\n" "No" "Barang" "Jml" "Harga" "Subtotal" >> $nama_file
+    echo "--------------------------------------------------------------------------" >> $nama_file
+
+    set -l total_item 0
+    for i in (seq (count $keranjang_nama))
+        set sub (math "$keranjang_harga[$i] * $keranjang_jumlah[$i]")
+        set total_item (math "$total_item + $keranjang_jumlah[$i]")
+        printf "%-3s %-14s %-4s %-7s %s\n" $i $keranjang_nama[$i] $keranjang_jumlah[$i] $keranjang_harga[$i] $sub >> $nama_file
+    end
+
+    echo "--------------------------------------------------------------------------" >> $nama_file
+    echo "Total Item         : $total_item" >> $nama_file
+    echo "TOTAL              : Rp $total" >> $nama_file
+    echo "BAYAR              : Rp $bayar" >> $nama_file
+    echo "KEMBALI            : Rp $kembalian" >> $nama_file
+    echo "========================================" >> $nama_file
+    echo "        *** TERIMA KASIH ***" >> $nama_file
+    echo "   Barang yang sudah dibeli" >> $nama_file
+    echo "   tidak dapat ditukar / kembali" >> $nama_file
+    echo "========================================" >> $nama_file
+
+    echo "Struk tersimpan: $nama_file"
+    echo "Tekan Enter untuk balik ke menu..."
+    read
 end
 
-# 3. CETAK STRUK LENGKAP
-mkdir -p ~/storage/shared/struk
-set tanggal (date "+%d-%m-%Y_%H%M%S")
-set nama_file $HOME/storage/shared/struk/struk_$tanggal.txt
+while true
+    clear
+    echo "=============================="
+    echo "      KASIR FISH v1.0.1       "
+    echo "     github.com/ricoyp96   "
+    echo "=============================="
+    echo "1. Transaksi Baru"
+    echo "2. Keluar"
+    echo "=============================="
+    read -P "Pilih [1-2]: " pilih
 
-set struk_lines
-set -a struk_lines "========================="
-set -a struk_lines " STRUK BELANJA "
-set -a struk_lines "========================="
-set -a struk_lines (date)
-set -a struk_lines "---------------------------------"
-set -a struk_lines "No | Nama | Harga | Jml | Subtotal"
-set -a struk_lines "---------------------------------"
-
-for i in (seq 1 (count $nama_barang))
-    set baris (printf "%-2d | %-7s | %7.0f | %3d | %9.0f" $i $nama_barang[$i] $harga_barang[$i] $jumlah_barang[$i] $subtotal_list[$i])
-    set -a struk_lines "$baris"
+    switch $pilih
+        case 1
+            kasir
+        case 2
+            echo "Terima kasih! Sampai jumpa."
+            break
+        case '*'
+            echo "Pilihan gak valid!"
+            sleep 1
+    end
 end
-
-set -a struk_lines "---------------------------------"
-set -a struk_lines "TOTAL BELANJA: Rp$total"
-set -a struk_lines "Uang Bayar: Rp$bayar"
-
-if test $kurang -gt 0
-    set -a struk_lines "Kekurangan: Rp$kurang"
-else
-    set -a struk_lines "Kembalian: Rp$kembalian"
-end
-
-set -a struk_lines "========================="
-set -a struk_lines "Terima kasih sudah belanja :)"
-
-clear
-printf "%s\n" $struk_lines
-printf "%s\n" $struk_lines > $nama_file
-
-echo "---------------------------------------"
-echo "Struk lengkap sudah disimpan ke: $nama_file"
