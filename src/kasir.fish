@@ -327,7 +327,7 @@ end
 while true
     clear
     echo "=============================="
-    echo "      KASIR FISH v1.0.1       "
+    echo "      KASIR FISH v1.1.0       "
     echo "     github.com/ricoyp96   "
     echo "=============================="
     echo "Toko: $nama_toko"
