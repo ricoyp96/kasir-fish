@@ -49,3 +49,7 @@ fish src/kasir.fish
 cd ~/kasir-fish
 git pull
 ```
+<img width="720" height="702" alt="12627" src="https://github.com/user-attachments/assets/5571d8ce-66ae-4beb-aea6-56e9f2082e9f" />
+<img width="720" height="625" alt="12628" src="https://github.com/user-attachments/assets/45fafa66-d5f3-487f-ba14-1cdec603dbab" />
+<img width="720" height="1612" alt="12630" src="https://github.com/user-attachments/assets/0d89e973-bf14-4b38-be25-33a16fd738df" />
+<img width="720" height="1612" alt="12631" src="https://github.com/user-attachments/assets/d5f82c45-c41e-4370-9e44-ae5f1c8baf43" />
